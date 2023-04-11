@@ -19,6 +19,7 @@ api.nvim_create_augroup("AutoSave", {
 })
 
 local global_vars = {}
+local timers = {}
 
 local function set_buf_var(buf, name, value)
     if buf == nil then
@@ -38,19 +39,23 @@ local function get_buf_var(buf, name)
     return success and mod or nil
 end
 
-local function debounce(lfn, duration)
-    local function inner_debounce()
-        local buf = api.nvim_get_current_buf()
-        if not get_buf_var(buf, "queued") then
-            vim.defer_fn(function()
-                set_buf_var(buf, "queued", false)
-                lfn(buf)
-            end, duration)
-            set_buf_var(buf, "queued", true)
-        end
-    end
+--     return inner_debounce
+-- end
 
-    return inner_debounce
+local function debounce(lfn, duration)
+    return function()
+        local buf = api.nvim_get_current_buf()
+        local timer = timers[buf];
+        if timer then
+            timer:close()
+            timers[buf] = nil
+        end
+        ---@diagnostic disable-next-line: param-type-mismatch
+        timers[buf] = vim.defer_fn(function ()
+            timers[buf] = nil
+            lfn()
+        end, duration)
+    end
 end
 
 function M.save(buf)
